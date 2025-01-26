@@ -1,4 +1,4 @@
-import requests
+import requests 
 from fastapi import FastAPI, Request
 import google.generativeai as genai
 from groq import Groq
@@ -7,7 +7,6 @@ from groq import Groq
 GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"  # Replace with your actual Gemini API key
 GROQ_API_KEY = "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"  # Replace with your actual Groq API key
 OPENWEATHER_API_KEY = "96ae2a7fe449f44ad93813d140e40aa1"  # Replace with your OpenWeather API key
-OPENCAGE_API_KEY = "993e21d6cca746a2bbebd2f6e02a8316"  # Replace with your OpenCage Geocoding API key
 
 # Configure Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
@@ -24,23 +23,19 @@ generation_config = {
     "response_mime_type": "text/plain",
 }
 
-
 def get_lat_lon_from_location(location):
     """
-    Fetch latitude and longitude for the given location using OpenCage Geocoding API.
+    Fetch latitude and longitude for the given location using Nominatim Geocoding API (OpenStreetMap).
     """
-    url = f"https://api.opencagedata.com/geocode/v1/json?q={location}&key={OPENCAGE_API_KEY}"
+    url = f"https://nominatim.openstreetmap.org/search?q={location}&format=json&addressdetails=1"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        if data['results']:
-            lat = data['results'][0]['geometry']['lat']
-            lon = data['results'][0]['geometry']['lng']
+        if data:
+            lat = data[0]['lat']
+            lon = data[0]['lon']
             return lat, lon
-        else:
-            return None, None
-    else:
-        return None, None
+    return None, None
 
 
 def get_weather_forecast(lat, lon):
@@ -121,7 +116,7 @@ async def generate_packing_list(request: Request):
     if not location or not activities:
         return {"error": "Location and activities are required."}
 
-    # Get latitude and longitude using OpenCage Geocoding API
+    # Get latitude and longitude using Nominatim Geocoding API
     lat, lon = get_lat_lon_from_location(location)
     if lat is None or lon is None:
         return {"error": f"Unable to find coordinates for {location}."}

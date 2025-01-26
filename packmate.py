@@ -1,68 +1,63 @@
 import requests
 from fastapi import FastAPI, Request
+import google.generativeai as genai
+from groq import Groq
+
+# Configure the API keys directly
+GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"  # Replace with your actual Gemini API key
+GROQ_API_KEY = "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"  # Replace with your actual Groq API key
+
+# Configure Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Initialize FastAPI app
 app = FastAPI()
 
+# Model generation configuration for Gemini
+generation_config = {
+    "temperature": 1,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 8192,
+    "response_mime_type": "text/plain",
+}
+
+
 def get_weather_forecast(location):
     """
-    Fetch weather forecast for the given location using Gemini API.
+    Fetch weather forecast for the given location (placeholder, can be extended).
     """
-    GEMINI_API_KEY = "AIzaSyCClZrazhQxLcDBJRpHyhXuKCn8UCQZw4w"  # Directly using the API key
-    GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "contents": [{
-            "parts": [{"text": f"Get current weather data for {location}."}]
-        }]
-    }
-
-    response = requests.post(GEMINI_API_URL, headers=headers, json=data)
-    if response.status_code == 200:
-        result = response.json()
-        return result.get("contents", [{}])[0].get("parts", [{}])[0].get("text", "No data available.")
-    else:
-        print("Failed to fetch weather data from Gemini API:", response.text)
-        return None
+    # Placeholder logic: Use external APIs like OpenWeather or similar if needed.
+    return f"Sunny with temperatures around 25°C in {location}."
 
 
 def get_packing_suggestions(location, activities):
     """
-    Use Gemini API to analyze location, weather, and activities for packing suggestions.
+    Use the Google Generative AI library to generate packing suggestions.
     """
-    GEMINI_API_KEY = "AIzaSyCClZrazhQxLcDBJRpHyhXuKCn8UCQZw4w"  # Directly using the API key
-    GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # Initialize the model
+    model = genai.GenerativeModel(
+        model_name="gemini-2.0-flash-exp",  # Confirm the correct model name
+        generation_config=generation_config,
+    )
 
-    headers = {
-        "Content-Type": "application/json"
-    }
+    # Start a chat session
+    chat_session = model.start_chat(history=[])
 
-    data = {
-        "contents": [{
-            "parts": [{"text": f"Suggest a packing list for {activities} in {location}."}]
-        }]
-    }
-
-    response = requests.post(GEMINI_API_URL, headers=headers, json=data)
-    if response.status_code == 200:
-        result = response.json()
-        return result.get("contents", [{}])[0].get("parts", [{}])[0].get("text", "No suggestions available.")
-    else:
-        print("Failed to fetch packing suggestions from Gemini API:", response.text)
-        return None
+    # Prompt for generating packing suggestions
+    prompt = f"Suggest a packing list for {activities} in {location}."
+    try:
+        response = chat_session.send_message(prompt)
+        return response.text
+    except Exception as e:
+        print("Error while fetching packing suggestions from Gemini API:", e)
+        return None  # Return None to trigger fallback
 
 
 def fallback_packing_suggestions(location, activities):
     """
     Use Groq API as a fallback to get packing suggestions if Gemini fails.
     """
-    GROQ_API_KEY = "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"  # Replace with your Groq API key
-    from groq import Groq
-
     client = Groq(api_key=GROQ_API_KEY)  # Initialize the Groq client with the API key
 
     query = f"Suggest a packing list for {activities} in {location}."
@@ -83,7 +78,7 @@ def fallback_packing_suggestions(location, activities):
         return response_content if response_content else "No suggestions available."
     except Exception as e:
         print("Failed to fetch packing suggestions from Groq API:", e)
-        return None
+        return "No suggestions available."
 
 
 @app.post("/generate_packing_list")
@@ -98,19 +93,23 @@ async def generate_packing_list(request: Request):
     if not location or not activities:
         return {"error": "Location and activities are required."}
 
-    # Fetch weather data (optional, can be used for future extensions)
+    # Fetch weather data (optional)
     weather_data = get_weather_forecast(location)
-    if not weather_data:
-        return {"error": "Could not retrieve weather information."}
 
     # Try Gemini for packing suggestions
-    gemini_suggestions = get_packing_suggestions(location, activities)
-    if gemini_suggestions:
-        return {"packing_list": gemini_suggestions.split("\n")}
+    packing_suggestions = get_packing_suggestions(location, activities)
+    if packing_suggestions:
+        return {
+            "weather": weather_data,
+            "packing_list": packing_suggestions.split("\n"),
+        }
 
     # Fallback to Groq if Gemini fails
     groq_suggestions = fallback_packing_suggestions(location, activities)
-    return {"packing_list": groq_suggestions.split("\n") if groq_suggestions else []}
+    return {
+        "weather": weather_data,
+        "packing_list": groq_suggestions.split("\n") if groq_suggestions else [],
+    }
 
 
 if __name__ == "__main__":

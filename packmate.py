@@ -9,7 +9,7 @@ def get_weather_forecast(location):
     """
     Fetch weather forecast for the given location using Gemini API.
     """
-    GEMINI_API_KEY = os.getenv("AIzaSyCClZrazhQxLcDBJRpHyhXuKCn8UCQZw4w")  # Fetch API key from environment variables
+    GEMINI_API_KEY = "AIzaSyCClZrazhQxLcDBJRpHyhXuKCn8UCQZw4w"  # Fetch API key from environment variables
     if not GEMINI_API_KEY:
         raise ValueError("Gemini API key not set in environment variables.")
 

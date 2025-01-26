@@ -6,6 +6,7 @@ from groq import Groq
 # Configure the API keys directly
 GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"  # Replace with your actual Gemini API key
 GROQ_API_KEY = "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"  # Replace with your actual Groq API key
+OPENWEATHER_API_KEY = "96ae2a7fe449f44ad93813d140e40aa1"  # Replace with your OpenWeather API key
 
 # Configure Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
@@ -23,12 +24,20 @@ generation_config = {
 }
 
 
-def get_weather_forecast(location):
+def get_weather_forecast(lat, lon):
     """
-    Fetch weather forecast for the given location (placeholder, can be extended).
+    Fetch weather forecast for the given latitude and longitude using OpenWeatherMap OneCall API.
     """
-    # Placeholder logic: Use external APIs like OpenWeather or similar if needed.
-    return f"Sunny with temperatures around 25°C in {location}."
+    url = f"http://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude=minutely,hourly,daily,alerts&appid={OPENWEATHER_API_KEY}&units=metric"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        current_weather = data['current']
+        weather_description = current_weather['weather'][0]['description']
+        temperature = current_weather['temp']
+        return f"{weather_description.capitalize()} with temperatures around {temperature}°C."
+    else:
+        return "Unable to fetch weather data."
 
 
 def get_packing_suggestions(location, activities):
@@ -89,12 +98,14 @@ async def generate_packing_list(request: Request):
     data = await request.json()
     location = data.get("location")
     activities = data.get("activities", [])
+    lat = data.get("latitude")
+    lon = data.get("longitude")
 
-    if not location or not activities:
-        return {"error": "Location and activities are required."}
+    if not location or not activities or lat is None or lon is None:
+        return {"error": "Location, latitude, longitude, and activities are required."}
 
-    # Fetch weather data (optional)
-    weather_data = get_weather_forecast(location)
+    # Fetch weather data using latitude and longitude
+    weather_data = get_weather_forecast(lat, lon)
 
     # Try Gemini for packing suggestions
     packing_suggestions = get_packing_suggestions(location, activities)

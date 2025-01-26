@@ -1,5 +1,4 @@
 import requests
-import json
 import os
 from fastapi import FastAPI, Request
 
@@ -14,59 +13,63 @@ def get_weather_forecast(location):
     if not GEMINI_API_KEY:
         raise ValueError("Gemini API key not set in environment variables.")
 
-    GEMINI_API_URL = "https://api.gemini.com/v1/weather"
+    GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
 
     headers = {
-        "Authorization": f"Bearer {GEMINI_API_KEY}",
         "Content-Type": "application/json"
     }
 
     data = {
-        "query": f"Get current weather data for {location}.",
-        "max_tokens": 100
+        "contents": [{
+            "parts": [{"text": f"Get current weather data for {location}."}]
+        }]
     }
 
     response = requests.post(GEMINI_API_URL, headers=headers, json=data)
     if response.status_code == 200:
         result = response.json()
-        return json.loads(result.get("choices", [{}])[0].get("text", "{}"))
+        return result.get("contents", [{}])[0].get("parts", [{}])[0].get("text", "No data available.")
     else:
         print("Failed to fetch weather data from Gemini API:", response.text)
         return None
+
 
 def get_packing_suggestions(location, activities):
     """
     Use Gemini API to analyze location, weather, and activities for packing suggestions.
     """
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # Fetch API key from environment variables
+    GEMINI_API_KEY = os.getenv("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")  # Fetch API key from environment variables
     if not GEMINI_API_KEY:
         raise ValueError("Gemini API key not set in environment variables.")
 
-    GEMINI_API_URL = "https://api.gemini.com/v1/packing"
+    GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+
     headers = {
-        "Authorization": f"Bearer {GEMINI_API_KEY}",
         "Content-Type": "application/json"
     }
+
     data = {
-        "query": f"Suggest a packing list for {activities} in {location}.",
-        "max_tokens": 200
+        "contents": [{
+            "parts": [{"text": f"Suggest a packing list for {activities} in {location}."}]
+        }]
     }
 
     response = requests.post(GEMINI_API_URL, headers=headers, json=data)
     if response.status_code == 200:
         result = response.json()
-        return result.get("choices", [{}])[0].get("text", "No suggestions available.")
+        return result.get("contents", [{}])[0].get("parts", [{}])[0].get("text", "No suggestions available.")
     else:
         print("Failed to fetch packing suggestions from Gemini API:", response.text)
         return None
 
+
 def fallback_packing_suggestions(location, activities):
     """
-    Use Groq (LLaMA) API as a fallback to get packing suggestions if Gemini fails.
+    Use Groq API as a fallback to get packing suggestions if Gemini fails.
     """
     from groq import Groq
 
-    GROQ_API_KEY = os.getenv("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")  # Fetch Groq API key from environment variables
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")  # Fetch Groq API key from environment variables
     if not GROQ_API_KEY:
         raise ValueError("Groq API key not set in environment variables.")
 
@@ -112,14 +115,13 @@ async def generate_packing_list(request: Request):
 
     # Try Gemini for packing suggestions
     gemini_suggestions = get_packing_suggestions(location, activities)
-
     if gemini_suggestions:
         return {"packing_list": gemini_suggestions.split("\n")}
 
     # Fallback to Groq if Gemini fails
     groq_suggestions = fallback_packing_suggestions(location, activities)
-
     return {"packing_list": groq_suggestions.split("\n") if groq_suggestions else []}
+
 
 if __name__ == "__main__":
     import uvicorn

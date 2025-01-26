@@ -1,5 +1,6 @@
 fastapi
 gunicorn
 uvicorn
+google-generative-ai
 requests
 groq  # Ensure this package is available or replace it with the correct one

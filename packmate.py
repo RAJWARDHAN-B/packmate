@@ -1,5 +1,4 @@
 import requests
-import os
 from fastapi import FastAPI, Request
 
 # Initialize FastAPI app
@@ -9,10 +8,7 @@ def get_weather_forecast(location):
     """
     Fetch weather forecast for the given location using Gemini API.
     """
-    GEMINI_API_KEY = "AIzaSyCClZrazhQxLcDBJRpHyhXuKCn8UCQZw4w"  # Fetch API key from environment variables
-    if not GEMINI_API_KEY:
-        raise ValueError("Gemini API key not set in environment variables.")
-
+    GEMINI_API_KEY = "AIzaSyCClZrazhQxLcDBJRpHyhXuKCn8UCQZw4w"  # Directly using the API key
     GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
 
     headers = {
@@ -38,10 +34,7 @@ def get_packing_suggestions(location, activities):
     """
     Use Gemini API to analyze location, weather, and activities for packing suggestions.
     """
-    GEMINI_API_KEY = os.getenv("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")  # Fetch API key from environment variables
-    if not GEMINI_API_KEY:
-        raise ValueError("Gemini API key not set in environment variables.")
-
+    GEMINI_API_KEY = "AIzaSyCClZrazhQxLcDBJRpHyhXuKCn8UCQZw4w"  # Directly using the API key
     GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
 
     headers = {
@@ -67,11 +60,8 @@ def fallback_packing_suggestions(location, activities):
     """
     Use Groq API as a fallback to get packing suggestions if Gemini fails.
     """
+    GROQ_API_KEY = "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"  # Replace with your Groq API key
     from groq import Groq
-
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")  # Fetch Groq API key from environment variables
-    if not GROQ_API_KEY:
-        raise ValueError("Groq API key not set in environment variables.")
 
     client = Groq(api_key=GROQ_API_KEY)  # Initialize the Groq client with the API key
 

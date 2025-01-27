@@ -133,18 +133,23 @@ def get_openweather_data(lat, lon):
         return "Unable to fetch weather data."
 
 
+from meteostat import Daily
+from datetime import datetime, timedelta
+
 def get_meteostat_data(lat, lon, input_date):
     """
-    Fetch historical or forecast weather data using Meteostat for future dates beyond 7 days.
+    Fetch weather data using Meteostat for future dates beyond 7 days.
     """
     try:
         # Ensure input_date is a datetime object
         if isinstance(input_date, str):
             input_date = datetime.strptime(input_date, "%Y-%m-%d")
 
-        # Create a Meteostat Daily object for the specified date
-        daily = Daily(lat, lon, start=input_date, end=input_date)
-        data = daily.fetch()
+        # Create a Meteostat Daily object
+        daily = Daily(lat, lon)
+        
+        # Pass the correct start and end parameters using keyword arguments
+        data = daily.fetch(start=input_date, end=input_date)
 
         # Extract relevant weather information
         if data.empty:

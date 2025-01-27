@@ -1,12 +1,14 @@
-import requests 
+import requests
 from fastapi import FastAPI, Request
 import google.generativeai as genai
 from groq import Groq
+import time
 
-# Configure the API keys directly
-GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"  # Replace with your actual Gemini API key
-GROQ_API_KEY = "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"  # Replace with your actual Groq API key
+# Configure API keys
+GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"  # Replace with your Gemini API key
+GROQ_API_KEY = "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"  # Replace with your Groq API key
 OPENWEATHER_API_KEY = "96ae2a7fe449f44ad93813d140e40aa1"  # Replace with your OpenWeather API key
+OPENCAGE_API_KEY = "993e21d6cca746a2bbebd2f6e02a8316"  # Replace with your OpenCage API key
 
 # Configure Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
@@ -14,29 +16,37 @@ genai.configure(api_key=GEMINI_API_KEY)
 # Initialize FastAPI app
 app = FastAPI()
 
-# Model generation configuration for Gemini
-generation_config = {
-    "temperature": 1,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
-}
-def get_lat_lon_from_location(location):
+# Cache for storing location coordinates to reduce API calls
+location_cache = {}
+
+# Rate limit: Avoid making too many requests in a short time
+RATE_LIMIT_SECONDS = 1  # Add a delay of 1 second between requests
+
+
+def get_lat_lon_from_nominatim(location):
     """
-    Fetch latitude and longitude for the given location using Nominatim Geocoding API (OpenStreetMap).
+    Fetch latitude and longitude using Nominatim Geocoding API (OpenStreetMap).
     """
+    if location in location_cache:
+        return location_cache[location]
+
+    # URL-encode the location
     from urllib.parse import quote
-    location = quote(location)  # Ensure the location string is URL-encoded
-    url = f"https://nominatim.openstreetmap.org/search?q={location}&format=json&addressdetails=1"
-    print(f"Fetching coordinates for location: {location}")
-    response = requests.get(url)
+    location_encoded = quote(location)
+    url = f"https://nominatim.openstreetmap.org/search?q={location_encoded}&format=json&addressdetails=1"
+
+    headers = {
+        "User-Agent": "YourAppName/1.0 (your_email@example.com)",  # Replace with your app name and email
+    }
+
+    time.sleep(RATE_LIMIT_SECONDS)  # Rate limit
+    response = requests.get(url, headers=headers)
     if response.status_code == 200:
         data = response.json()
         if data:
-            lat = data[0]['lat']
-            lon = data[0]['lon']
-            print(f"Coordinates for {location}: {lat}, {lon}")
+            lat = data[0]["lat"]
+            lon = data[0]["lon"]
+            location_cache[location] = (lat, lon)  # Cache the result
             return lat, lon
         else:
             print(f"No data found for location: {location}")
@@ -45,18 +55,40 @@ def get_lat_lon_from_location(location):
     return None, None
 
 
+def get_lat_lon_from_opencage(location):
+    """
+    Fetch latitude and longitude using the OpenCage Geocoding API.
+    """
+    if location in location_cache:
+        return location_cache[location]
+
+    url = f"https://api.opencagedata.com/geocode/v1/json?q={location}&key={OPENCAGE_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        if data["results"]:
+            lat = data["results"][0]["geometry"]["lat"]
+            lon = data["results"][0]["geometry"]["lng"]
+            location_cache[location] = (lat, lon)  # Cache the result
+            return lat, lon
+        else:
+            print(f"No data found for location: {location}")
+    else:
+        print(f"Failed to fetch coordinates from OpenCage. Status: {response.status_code}, Response: {response.text}")
+    return None, None
+
 
 def get_weather_forecast(lat, lon):
     """
-    Fetch weather forecast for the given latitude and longitude using OpenWeatherMap OneCall API.
+    Fetch weather forecast for the given latitude and longitude using OpenWeatherMap API.
     """
     url = f"http://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude=minutely,hourly,daily,alerts&appid={OPENWEATHER_API_KEY}&units=metric"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        current_weather = data['current']
-        weather_description = current_weather['weather'][0]['description']
-        temperature = current_weather['temp']
+        current_weather = data["current"]
+        weather_description = current_weather["weather"][0]["description"]
+        temperature = current_weather["temp"]
         return f"{weather_description.capitalize()} with temperatures around {temperature}°C."
     else:
         return "Unable to fetch weather data."
@@ -69,7 +101,12 @@ def get_packing_suggestions(location, activities):
     # Initialize the model
     model = genai.GenerativeModel(
         model_name="gemini-2.0-flash-exp",  # Confirm the correct model name
-        generation_config=generation_config,
+        generation_config={
+            "temperature": 1,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 8192,
+        },
     )
 
     # Start a chat session
@@ -124,8 +161,12 @@ async def generate_packing_list(request: Request):
     if not location or not activities:
         return {"error": "Location and activities are required."}
 
-    # Get latitude and longitude using Nominatim Geocoding API
-    lat, lon = get_lat_lon_from_location(location)
+    # Get latitude and longitude using Nominatim, fallback to OpenCage
+    lat, lon = get_lat_lon_from_nominatim(location)
+    if lat is None or lon is None:
+        print("Nominatim failed. Trying OpenCage...")
+        lat, lon = get_lat_lon_from_opencage(location)
+
     if lat is None or lon is None:
         return {"error": f"Unable to find coordinates for {location}."}
 
@@ -150,4 +191,5 @@ async def generate_packing_list(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

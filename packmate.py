@@ -136,6 +136,7 @@ def get_openweather_data(lat, lon):
 from meteostat import Daily
 from datetime import datetime, timedelta
 
+
 def get_meteostat_data(lat, lon, input_date):
     """
     Fetch weather data using Meteostat for future dates beyond 7 days.
@@ -147,9 +148,13 @@ def get_meteostat_data(lat, lon, input_date):
 
         # Create a Meteostat Daily object
         daily = Daily(lat, lon)
-        
-        # Pass the correct start and end parameters using keyword arguments
-        data = daily.fetch(start=input_date, end=input_date)
+
+        # Use the 'time' method to set the range
+        # For future dates, use start and end as the same date
+        daily = daily.loc[input_date]
+
+        # Fetch the data
+        data = daily.fetch()
 
         # Extract relevant weather information
         if data.empty:
@@ -162,6 +167,7 @@ def get_meteostat_data(lat, lon, input_date):
     except Exception as e:
         print(f"Error fetching Meteostat data: {e}")
         return "Unable to fetch weather data from Meteostat."
+
 
 
 def get_packing_suggestions(location, activities):

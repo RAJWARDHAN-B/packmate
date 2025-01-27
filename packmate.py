@@ -137,17 +137,26 @@ def get_meteostat_data(lat, lon, input_date):
     """
     Fetch historical or forecast weather data using Meteostat for future dates beyond 7 days.
     """
-    # Create a Meteostat Daily object for the specified date
-    daily = Daily(lat, lon, start=input_date, end=input_date)
-    data = daily.fetch()
+    try:
+        # Ensure input_date is a datetime object
+        if isinstance(input_date, str):
+            input_date = datetime.strptime(input_date, "%Y-%m-%d")
 
-    # Extract relevant weather information
-    if data.empty:
-        return "No data available for the given date."
-    
-    # You can extract the desired data (e.g., temperature, weather conditions)
-    avg_temp = data['temp'].mean()  # Example: average temperature
-    return f"Forecast for {input_date.strftime('%Y-%m-%d')}: Avg Temp: {avg_temp}°C"
+        # Create a Meteostat Daily object for the specified date
+        daily = Daily(lat, lon, start=input_date, end=input_date)
+        data = daily.fetch()
+
+        # Extract relevant weather information
+        if data.empty:
+            return "No data available for the given date."
+        
+        # Example: Extract the average temperature
+        avg_temp = data['temp'].mean()  # Get the average temperature
+        return f"Forecast for {input_date.strftime('%Y-%m-%d')}: Avg Temp: {avg_temp}°C"
+
+    except Exception as e:
+        print(f"Error fetching Meteostat data: {e}")
+        return "Unable to fetch weather data from Meteostat."
 
 
 def get_packing_suggestions(location, activities):

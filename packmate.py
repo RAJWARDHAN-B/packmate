@@ -82,7 +82,7 @@ def get_weather_forecast(lat, lon):
     """
     Fetch weather forecast for the given latitude and longitude using OpenWeatherMap API.
     """
-    url = f"http://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude=minutely,hourly,daily,alerts&appid={OPENWEATHER_API_KEY}&units=metric"
+    url = f"http://api.openweathermap.org/data/2.5/onecall?lat={lat}&lon={lon}&exclude=minutely,hourly,daily,alerts&appid={OPENWEATHER_API_KEY}&units=metric"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()

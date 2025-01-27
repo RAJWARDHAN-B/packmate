@@ -3,4 +3,5 @@ gunicorn
 uvicorn
 google-generativeai
 requests
+meteostat
 groq  # Ensure this package is available or replace it with the correct one

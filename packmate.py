@@ -7,7 +7,7 @@ import time
 # Configure API keys
 GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"  # Replace with your Gemini API key
 GROQ_API_KEY = "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"  # Replace with your Groq API key
-OPENWEATHER_API_KEY = "96ae2a7fe449f44ad93813d140e40aa1"  # Replace with your OpenWeather API key
+OPENWEATHER_API_KEY = "f65ed6d0474abe2144b0d4766558ea99"  # Replace with your OpenWeather API key
 OPENCAGE_API_KEY = "993e21d6cca746a2bbebd2f6e02a8316"  # Replace with your OpenCage API key
 
 # Configure Gemini API

@@ -3,12 +3,14 @@ from fastapi import FastAPI, Request
 import google.generativeai as genai
 from groq import Groq
 import time
+from datetime import datetime, timedelta
+from meteostat import Daily, Point
 
 # Configure API keys
-GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"  # Replace with your Gemini API key
-GROQ_API_KEY = "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"  # Replace with your Groq API key
-OPENWEATHER_API_KEY = "f65ed6d0474abe2144b0d4766558ea99"  # Replace with your OpenWeather API key
-OPENCAGE_API_KEY = "993e21d6cca746a2bbebd2f6e02a8316"  # Replace with your OpenCage API key
+GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"
+GROQ_API_KEY = "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"
+OPENWEATHER_API_KEY = "f65ed6d0474abe2144b0d4766558ea99"
+OPENCAGE_API_KEY = "993e21d6cca746a2bbebd2f6e02a8316"
 
 # Configure Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
@@ -24,133 +26,92 @@ RATE_LIMIT_SECONDS = 1  # Add a delay of 1 second between requests
 
 
 def get_lat_lon_from_nominatim(location):
-    """
-    Fetch latitude and longitude using Nominatim Geocoding API (OpenStreetMap).
-    """
+    """Fetch latitude and longitude using Nominatim Geocoding API."""
     if location in location_cache:
         return location_cache[location]
 
-    # URL-encode the location
     from urllib.parse import quote
     location_encoded = quote(location)
     url = f"https://nominatim.openstreetmap.org/search?q={location_encoded}&format=json&addressdetails=1"
-
-    headers = {
-        "User-Agent": "YourAppName/1.0 (your_email@example.com)",  # Replace with your app name and email
-    }
-
-    time.sleep(RATE_LIMIT_SECONDS)  # Rate limit
+    headers = {"User-Agent": "YourAppName/1.0 (your_email@example.com)"}
+    time.sleep(RATE_LIMIT_SECONDS)
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         data = response.json()
         if data:
             lat = data[0]["lat"]
             lon = data[0]["lon"]
-            location_cache[location] = (lat, lon)  # Cache the result
+            location_cache[location] = (lat, lon)
             return lat, lon
-        else:
-            print(f"No data found for location: {location}")
-    else:
-        print(f"Failed to fetch coordinates. Status: {response.status_code}, Response: {response.text}")
     return None, None
 
 
-def get_lat_lon_from_opencage(location):
+def get_weather_forecast(lat, lon, input_date):
     """
-    Fetch latitude and longitude using the OpenCage Geocoding API.
+    Fetch weather data based on the date:
+    - Within 7 days: Use OpenWeather API.
+    - After 7 days: Use Meteostat for future weather data.
     """
-    if location in location_cache:
-        return location_cache[location]
+    input_date = datetime.strptime(input_date, "%Y-%m-%d").date()
+    today = datetime.now().date()
 
-    url = f"https://api.opencagedata.com/geocode/v1/json?q={location}&key={OPENCAGE_API_KEY}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if data["results"]:
-            lat = data["results"][0]["geometry"]["lat"]
-            lon = data["results"][0]["geometry"]["lng"]
-            location_cache[location] = (lat, lon)  # Cache the result
-            return lat, lon
-        else:
-            print(f"No data found for location: {location}")
-    else:
-        print(f"Failed to fetch coordinates from OpenCage. Status: {response.status_code}, Response: {response.text}")
-    return None, None
-
-
-def get_weather_forecast(lat, lon):
-    """
-    Fetch weather forecast for the given latitude and longitude using OpenWeatherMap API.
-    """
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
-    try:
+    # Case 1: Within 7 days (OpenWeather API)
+    if today <= input_date <= today + timedelta(days=7):
+        url = f"https://api.openweathermap.org/data/2.5/onecall?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
         response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        data = response.json()
+        if response.status_code == 200:
+            data = response.json()
+            delta_days = (input_date - today).days
+            daily_weather = data["daily"][delta_days]
+            temp = daily_weather["temp"]["day"]
+            conditions = daily_weather["weather"][0]["description"]
+            return f"Forecast for {input_date}: {conditions}, Temp: {temp}°C"
+        else:
+            return "Error fetching weather data from OpenWeather."
 
-        # Extract weather details
-        weather_description = data["weather"][0]["description"]  # E.g., "clear sky"
-        temperature = data["main"]["temp"]  # Current temperature in °C
-        feels_like = data["main"]["feels_like"]  # Feels like temperature
+    # Case 2: Future dates beyond 7 days (Meteostat API)
+    elif input_date > today + timedelta(days=7):
+        location = Point(lat, lon)
+        data = Daily(location, today + timedelta(days=7), input_date)
+        data = data.fetch()
+        if not data.empty:
+            avg_temp = data["tavg"].iloc[0]
+            return f"Forecast for {input_date}: Avg Temp: {avg_temp}°C"
+        else:
+            return f"No forecast data available for {input_date} from Meteostat."
 
-        # Format the weather report
-        return (
-            f"Current weather is {weather_description.capitalize()} with a temperature "
-            f"of {temperature}°C (feels like {feels_like}°C)."
-        )
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching weather data: {e}")
-        return "Unable to fetch weather data."
+    # Case 3: Handle other cases
+    else:
+        return "Weather data for this date is unavailable."
 
 
 def get_packing_suggestions(location, activities):
-    """
-    Use the Google Generative AI library to generate packing suggestions.
-    """
-    # Initialize the model
+    """Use the Google Generative AI library to generate packing suggestions."""
     model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash-exp",  # Confirm the correct model name
-        generation_config={
-            "temperature": 1,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 8192,
-        },
+        model_name="gemini-2.0-flash-exp",
+        generation_config={"temperature": 1, "top_p": 0.95, "top_k": 40, "max_output_tokens": 8192},
     )
-
-    # Start a chat session
     chat_session = model.start_chat(history=[])
-
-    # Prompt for generating packing suggestions
     prompt = f"Suggest a packing list for {activities} in {location}."
     try:
         response = chat_session.send_message(prompt)
         return response.text
     except Exception as e:
-        print("Error while fetching packing suggestions from Gemini API:", e)
-        return None  # Return None to trigger fallback
+        print("Error fetching packing suggestions from Gemini API:", e)
+        return None
 
 
 def fallback_packing_suggestions(location, activities):
-    """
-    Use Groq API as a fallback to get packing suggestions if Gemini fails.
-    """
-    client = Groq(api_key=GROQ_API_KEY)  # Initialize the Groq client with the API key
-
+    """Use Groq API as a fallback for packing suggestions."""
+    client = Groq(api_key=GROQ_API_KEY)
     query = f"Suggest a packing list for {activities} in {location}."
-
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "system", "content": query}],
             temperature=1,
             max_completion_tokens=200,
-            top_p=1,
-            stream=False,
-            stop=None,
         )
-
-        # Process the response to extract content
         response_content = completion.choices[0].message.get("content", "")
         return response_content if response_content else "No suggestions available."
     except Exception as e:
@@ -160,29 +121,27 @@ def fallback_packing_suggestions(location, activities):
 
 @app.post("/generate_packing_list")
 async def generate_packing_list(request: Request):
-    """
-    Generate a packing list based on location, weather, and activities.
-    """
+    """Generate a packing list based on location, date, weather, and activities."""
     data = await request.json()
     location = data.get("location")
     activities = data.get("activities", [])
+    input_date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
 
     if not location or not activities:
         return {"error": "Location and activities are required."}
 
-    # Get latitude and longitude using Nominatim, fallback to OpenCage
+    # Get latitude and longitude
     lat, lon = get_lat_lon_from_nominatim(location)
     if lat is None or lon is None:
-        print("Nominatim failed. Trying OpenCage...")
         lat, lon = get_lat_lon_from_opencage(location)
 
     if lat is None or lon is None:
         return {"error": f"Unable to find coordinates for {location}."}
 
-    # Fetch weather data using latitude and longitude
-    weather_data = get_weather_forecast(lat, lon)
+    # Fetch weather data
+    weather_data = get_weather_forecast(lat, lon, input_date)
 
-    # Try Gemini for packing suggestions
+    # Generate packing suggestions
     packing_suggestions = get_packing_suggestions(location, activities)
     if packing_suggestions:
         return {
@@ -190,7 +149,7 @@ async def generate_packing_list(request: Request):
             "packing_list": packing_suggestions.split("\n"),
         }
 
-    # Fallback to Groq if Gemini fails
+    # Fallback to Groq
     groq_suggestions = fallback_packing_suggestions(location, activities)
     return {
         "weather": weather_data,

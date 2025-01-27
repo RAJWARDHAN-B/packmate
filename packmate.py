@@ -22,20 +22,28 @@ generation_config = {
     "max_output_tokens": 8192,
     "response_mime_type": "text/plain",
 }
-
 def get_lat_lon_from_location(location):
     """
     Fetch latitude and longitude for the given location using Nominatim Geocoding API (OpenStreetMap).
     """
+    from urllib.parse import quote
+    location = quote(location)  # Ensure the location string is URL-encoded
     url = f"https://nominatim.openstreetmap.org/search?q={location}&format=json&addressdetails=1"
+    print(f"Fetching coordinates for location: {location}")
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
         if data:
             lat = data[0]['lat']
             lon = data[0]['lon']
+            print(f"Coordinates for {location}: {lat}, {lon}")
             return lat, lon
+        else:
+            print(f"No data found for location: {location}")
+    else:
+        print(f"Failed to fetch coordinates. Status: {response.status_code}, Response: {response.text}")
     return None, None
+
 
 
 def get_weather_forecast(lat, lon):

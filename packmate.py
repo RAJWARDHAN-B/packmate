@@ -82,15 +82,24 @@ def get_weather_forecast(lat, lon):
     """
     Fetch weather forecast for the given latitude and longitude using OpenWeatherMap API.
     """
-    url = f"http://api.openweathermap.org/data/2.5/onecall?lat={lat}&lon={lon}&exclude=minutely,hourly,daily,alerts&appid={OPENWEATHER_API_KEY}&units=metric"
-    response = requests.get(url)
-    if response.status_code == 200:
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
         data = response.json()
-        current_weather = data["current"]
-        weather_description = current_weather["weather"][0]["description"]
-        temperature = current_weather["temp"]
-        return f"{weather_description.capitalize()} with temperatures around {temperature}°C."
-    else:
+
+        # Extract weather details
+        weather_description = data["weather"][0]["description"]  # E.g., "clear sky"
+        temperature = data["main"]["temp"]  # Current temperature in °C
+        feels_like = data["main"]["feels_like"]  # Feels like temperature
+
+        # Format the weather report
+        return (
+            f"Current weather is {weather_description.capitalize()} with a temperature "
+            f"of {temperature}°C (feels like {feels_like}°C)."
+        )
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching weather data: {e}")
         return "Unable to fetch weather data."
 
 

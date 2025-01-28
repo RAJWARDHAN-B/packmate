@@ -133,9 +133,8 @@ def get_openweather_data(lat, lon):
         return "Unable to fetch weather data."
 
 
-from meteostat import Daily
-from datetime import datetime, timedelta
-
+from meteostat import Point, Daily
+from datetime import datetime
 
 def get_meteostat_data(lat, lon, input_date):
     """
@@ -146,28 +145,24 @@ def get_meteostat_data(lat, lon, input_date):
         if isinstance(input_date, str):
             input_date = datetime.strptime(input_date, "%Y-%m-%d")
 
-        # Create a Meteostat Daily object
-        daily = Daily(lat, lon)
+        # Create a Point object for the given latitude and longitude
+        location = Point(lat, lon)
 
-        # Use the 'time' method to set the range
-        # For future dates, use start and end as the same date
-        daily = daily.loc[input_date]
-
-        # Fetch the data
+        # Set the time range for the input date (start and end are the same for a single day)
+        daily = Daily(location, input_date, input_date)
         data = daily.fetch()
 
         # Extract relevant weather information
         if data.empty:
             return "No data available for the given date."
-        
+
         # Example: Extract the average temperature
-        avg_temp = data['temp'].mean()  # Get the average temperature
+        avg_temp = data['tavg'].iloc[0]  # Get the average temperature for the day
         return f"Forecast for {input_date.strftime('%Y-%m-%d')}: Avg Temp: {avg_temp}°C"
 
     except Exception as e:
         print(f"Error fetching Meteostat data: {e}")
         return "Unable to fetch weather data from Meteostat."
-
 
 
 def get_packing_suggestions(location, activities):

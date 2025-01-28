@@ -168,13 +168,15 @@ import re
 
 def extract_items_from_suggestions(suggestions):
     """
-    Extract just the item names from the packing suggestions text.
-    Assumes each item is in bullet-point format (e.g., "* Item Name").
+    Extracts item names from a packing suggestions text while cleaning up formatting issues.
     """
-    # Use regular expressions to find all items that start with a bullet point or a similar marker
-    items = re.findall(r"[*•-]\s*(.*?)(?=\s*(?:[*•-]|$))", suggestions)
+    # Split suggestions by line, remove empty lines, and clean up formatting
+    cleaned_suggestions = [
+        re.sub(r"[:•\-]+", "", line).strip() for line in suggestions.split("\n") if line.strip()
+    ]
 
-    return items
+    # Return the cleaned list
+    return cleaned_suggestions
 
 def get_packing_suggestions(location, activities):
     """
@@ -200,7 +202,7 @@ def get_packing_suggestions(location, activities):
         response = chat_session.send_message(prompt)
         packing_list = response.text
 
-        # Extract only the item names from the response
+        # Extract and clean the item names
         items = extract_items_from_suggestions(packing_list)
 
         return items
@@ -229,16 +231,14 @@ def fallback_packing_suggestions(location, activities):
 
         # Process the response to extract content
         response_content = completion.choices[0].message.get("content", "")
-        
-        # Extract only the item names from the response
+
+        # Extract and clean the item names
         items = extract_items_from_suggestions(response_content)
 
-        return items if items else []
+        return items
     except Exception as e:
         print("Failed to fetch packing suggestions from Groq API:", e)
         return []  # Return empty list if error occurs
-
-
 
 @app.post("/generate_packing_list")
 async def generate_packing_list(request: Request):
@@ -267,25 +267,19 @@ async def generate_packing_list(request: Request):
 
     # Try Gemini for packing suggestions
     packing_suggestions = get_packing_suggestions(location, activities)
-
-    packing_list = []
     if packing_suggestions:
-        if isinstance(packing_suggestions, list):
-            packing_list = [item.strip() for item in packing_suggestions if item.strip()]
-        elif isinstance(packing_suggestions, str):
-            packing_list = [item.strip() for item in packing_suggestions.split("\n") if item.strip()]
-    else:
-        # Fallback to Groq if Gemini fails
-        groq_suggestions = fallback_packing_suggestions(location, activities)
-        if isinstance(groq_suggestions, list):
-            packing_list = [item.strip() for item in groq_suggestions if item.strip()]
-        elif isinstance(groq_suggestions, str):
-            packing_list = [item.strip() for item in groq_suggestions.split("\n") if item.strip()]
+        return {
+            "weather": weather_data,
+            "packing_list": packing_suggestions,
+        }
 
+    # Fallback to Groq if Gemini fails
+    groq_suggestions = fallback_packing_suggestions(location, activities)
     return {
         "weather": weather_data,
-        "packing_list": packing_list if packing_list else [],
+        "packing_list": groq_suggestions if groq_suggestions else [],
     }
+
 
 
 if __name__ == "__main__":

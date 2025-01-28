@@ -164,6 +164,17 @@ def get_meteostat_data(lat, lon, input_date):
         print(f"Error fetching Meteostat data: {e}")
         return "Unable to fetch weather data from Meteostat."
 
+import re
+
+def extract_items_from_suggestions(suggestions):
+    """
+    Extract just the item names from the packing suggestions text.
+    Assumes each item is in bullet-point format (e.g., "* Item Name").
+    """
+    # Use regular expressions to find all items that start with a bullet point or a similar marker
+    items = re.findall(r"[*•-]\s*(.*?)(?=\s*(?:[*•-]|$))", suggestions)
+
+    return items
 
 def get_packing_suggestions(location, activities):
     """
@@ -187,11 +198,15 @@ def get_packing_suggestions(location, activities):
     prompt = f"Suggest a packing list for {activities} in {location}."
     try:
         response = chat_session.send_message(prompt)
-        return response.text
+        packing_list = response.text
+
+        # Extract only the item names from the response
+        items = extract_items_from_suggestions(packing_list)
+
+        return items
     except Exception as e:
         print("Error while fetching packing suggestions from Gemini API:", e)
-        return None  # Return None to trigger fallback
-
+        return []  # Return empty list on error
 
 def fallback_packing_suggestions(location, activities):
     """
@@ -214,10 +229,15 @@ def fallback_packing_suggestions(location, activities):
 
         # Process the response to extract content
         response_content = completion.choices[0].message.get("content", "")
-        return response_content if response_content else "No suggestions available."
+        
+        # Extract only the item names from the response
+        items = extract_items_from_suggestions(response_content)
+
+        return items if items else []
     except Exception as e:
         print("Failed to fetch packing suggestions from Groq API:", e)
-        return "No suggestions available."
+        return []  # Return empty list if error occurs
+
 
 
 @app.post("/generate_packing_list")

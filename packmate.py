@@ -38,7 +38,7 @@ def get_lat_lon_from_nominatim(location):
     url = f"https://nominatim.openstreetmap.org/search?q={location_encoded}&format=json&addressdetails=1"
 
     headers = {
-        "User-Agent": "YourAppName/1.0 (your_email@example.com)",  # Replace with your app name and email
+        "User-Agent": "packmate/1.0 (kodlingepranav3@example.com)",  # Replace with your app name and email
     }
 
     time.sleep(RATE_LIMIT_SECONDS)  # Rate limit

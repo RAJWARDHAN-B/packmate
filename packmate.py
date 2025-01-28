@@ -248,16 +248,20 @@ async def generate_packing_list(request: Request):
     # Try Gemini for packing suggestions
     packing_suggestions = get_packing_suggestions(location, activities)
     if packing_suggestions:
+        # Extract only the item names (without descriptions)
+        packing_list = [item.strip() for item in packing_suggestions.split("\n") if item.strip()]
         return {
             "weather": weather_data,
-            "packing_list": packing_suggestions.split("\n"),
+            "packing_list": packing_list,
         }
 
     # Fallback to Groq if Gemini fails
     groq_suggestions = fallback_packing_suggestions(location, activities)
+    packing_list = [item.strip() for item in groq_suggestions.split("\n") if item.strip()]
+    
     return {
         "weather": weather_data,
-        "packing_list": groq_suggestions.split("\n") if groq_suggestions else [],
+        "packing_list": packing_list if packing_list else [],
     }
 
 

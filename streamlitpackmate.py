@@ -171,7 +171,7 @@ def filter_excessive_items(packing_list, trip_duration):
 
 
 # Streamlit UI
-st.title("🎒 Personalized Packing List Generator")
+st.title("🧳 Personalized Packing List Generator")
 st.markdown("### Plan your trip smarter with weather-based personalized packing lists!")
 
 st.sidebar.header("🌍 Trip Details")

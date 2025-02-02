@@ -8,7 +8,7 @@ from io import BytesIO
 from docx import Document
 
 # Set page configuration
-st.set_page_config(page_title="Smart Packing Assistant", page_icon="🎒", layout="wide")
+st.set_page_config(page_title="PackMate", page_icon="./hackelitelogo.png", layout="wide")
 
 # Load API keys
 GEMINI_API_KEY = "AIzaSyBDEnO1lXyhUd6NctHbRqESI6BMdk61a8E"
